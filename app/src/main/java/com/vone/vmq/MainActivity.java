@@ -19,6 +19,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -35,8 +36,10 @@ import com.vone.vmq.util.Constant;
 import com.google.zxing.activity.CaptureActivity;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Set;
 
@@ -46,7 +49,9 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-public class MainActivity extends AppCompatActivity{
+import static java.util.Base64.*;
+
+public class MainActivity extends AppCompatActivity {
 
 
     private TextView txthost;
@@ -57,6 +62,9 @@ public class MainActivity extends AppCompatActivity{
 
     private static String host;
     private static String key;
+    private static String dataUrl;
+    private static String heartUrl;
+
 
     int id = 0;
 
@@ -67,10 +75,8 @@ public class MainActivity extends AppCompatActivity{
         setContentView(R.layout.activity_main);
 
 
-
         txthost = (TextView) findViewById(R.id.txt_host);
         txtkey = (TextView) findViewById(R.id.txt_key);
-
 
 
         //检测通知使用权是否启用
@@ -82,24 +88,22 @@ public class MainActivity extends AppCompatActivity{
         toggleNotificationListenerService(this);
 
 
-
         //读入保存的配置数据并显示
         SharedPreferences read = getSharedPreferences("vone", MODE_PRIVATE);
         host = read.getString("host", "");
         key = read.getString("key", "");
 
-        if (host!=null && key!=null && host!="" && key!=""){
-            txthost.setText(" 通知地址："+host);
-            txtkey.setText(" 通讯密钥："+key);
+        if (host != null && key != null && host != "" && key != "") {
+            txthost.setText(" 通知地址：" + host);
+            txtkey.setText(" 通讯密钥：" + key);
             isOk = true;
         }
 
 
-        Toast.makeText(MainActivity.this, "v免签开源免费免签系统 v1.8.1", Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, "v免签系统 v1.0.1", Toast.LENGTH_SHORT).show();
 
 
     }
-
 
 
     //扫码配置
@@ -120,8 +124,9 @@ public class MainActivity extends AppCompatActivity{
         Intent intent = new Intent(MainActivity.this, CaptureActivity.class);
         startActivityForResult(intent, Constant.REQ_QR_CODE);
     }
+
     //手动配置
-    public void doInput(View v){
+    public void doInput(View v) {
         final EditText inputServer = new EditText(this);
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("请输入配置数据").setView(inputServer)
@@ -130,46 +135,54 @@ public class MainActivity extends AppCompatActivity{
 
             public void onClick(DialogInterface dialog, int which) {
                 String scanResult = inputServer.getText().toString();
-
-                String[] tmp = scanResult.split("/");
-                if (tmp.length!=2){
+                // split[0[ http://xxxxxx split[1] keysssssssss
+                String[] tmp = scanResult.split("/monitor/report/business/");
+                if (tmp.length != 2) {
                     Toast.makeText(MainActivity.this, "数据错误，请您输入网站上显示的配置数据!", Toast.LENGTH_SHORT).show();
                     return;
                 }
 
-                String t = String.valueOf(new Date().getTime());
-                String sign = md5(t+tmp[1]);
+                String decodeKey = NeNotificationService2.decode64(tmp[1]);
+
+                host = scanResult;
+                key = decodeKey;
+                dataUrl = tmp[0] + Constant.URL_DATA + tmp[1];
+                heartUrl = tmp[0] + Constant.URL_HEART + tmp[1];
+
+                String url = NeNotificationService2.heartURL(heartUrl, decodeKey);
+
 
 
                 OkHttpClient okHttpClient = new OkHttpClient();
-                Request request = new Request.Builder().url("http://"+tmp[0]+"/appHeart?t="+t+"&sign="+sign).method("GET",null).build();
+                Request request = new Request.Builder().url(url).method("GET", null).build();
                 Call call = okHttpClient.newCall(request);
                 call.enqueue(new Callback() {
                     @Override
                     public void onFailure(Call call, IOException e) {
 
                     }
+
                     @Override
                     public void onResponse(Call call, Response response) throws IOException {
-                        Log.d(TAG, "onResponse: "+response.body().string());
+                        Log.d(TAG, "onResponse: " + response.body().string());
                         isOk = true;
 
                     }
                 });
-                if (tmp[0].indexOf("localhost")>=0){
+                if (tmp[0].indexOf("localhost") >= 0) {
                     Toast.makeText(MainActivity.this, "配置信息错误，本机调试请访问 本机局域网IP:8080(如192.168.1.101:8080) 获取配置信息进行配置!", Toast.LENGTH_LONG).show();
 
                     return;
                 }
                 //将扫描出的信息显示出来
-                txthost.setText(" 通知地址："+tmp[0]);
-                txtkey.setText(" 通讯密钥："+tmp[1]);
-                host = tmp[0];
-                key = tmp[1];
+                txthost.setText(" 通知地址：" + tmp[0]);
+                txtkey.setText(" 通讯密钥：" + tmp[1]);
 
                 SharedPreferences.Editor editor = getSharedPreferences("vone", MODE_PRIVATE).edit();
                 editor.putString("host", host);
                 editor.putString("key", key);
+                editor.putString("heart", heartUrl);
+                editor.putString("data", dataUrl);
                 editor.commit();
 
             }
@@ -177,19 +190,20 @@ public class MainActivity extends AppCompatActivity{
         builder.show();
 
     }
+
     //检测心跳
     public void doStart(View view) {
-        if (isOk==false){
+        if (isOk == false) {
             Toast.makeText(MainActivity.this, "请您先配置!", Toast.LENGTH_SHORT).show();
             return;
         }
+        SharedPreferences read = getSharedPreferences("vone", MODE_PRIVATE);
+        heartUrl = read.getString("heart", "");
 
-
-        String t = String.valueOf(new Date().getTime());
-        String sign = md5(t+key);
+        String url = NeNotificationService2.heartURL(heartUrl, key);
 
         OkHttpClient okHttpClient = new OkHttpClient();
-        Request request = new Request.Builder().url("http://"+host+"/appHeart?t="+t+"&sign="+sign).method("GET",null).build();
+        Request request = new Request.Builder().url(url).method("GET", null).build();
         Call call = okHttpClient.newCall(request);
         call.enqueue(new Callback() {
             @Override
@@ -198,16 +212,18 @@ public class MainActivity extends AppCompatActivity{
                 Toast.makeText(MainActivity.this, "心跳状态错误，请检查配置是否正确!", Toast.LENGTH_SHORT).show();
                 Looper.loop();
             }
+
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 Looper.prepare();
-                Toast.makeText(MainActivity.this, "心跳返回："+response.body().string(), Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "心跳返回：成功 " + response.body().string(), Toast.LENGTH_LONG).show();
                 Looper.loop();
             }
         });
     }
+
     //检测监听
-    public void checkPush(View v){
+    public void checkPush(View v) {
 
         Notification mNotification;
         NotificationManager mNotificationManager;
@@ -222,7 +238,7 @@ public class MainActivity extends AppCompatActivity{
             channel.setShowBadge(true);
             mNotificationManager.createNotificationChannel(channel);
 
-            Notification.Builder builder = new Notification.Builder(this,"1");
+            Notification.Builder builder = new Notification.Builder(this, "1");
 
             mNotification = builder
                     .setSmallIcon(R.mipmap.ic_launcher)
@@ -230,7 +246,7 @@ public class MainActivity extends AppCompatActivity{
                     .setContentTitle("V免签测试推送")
                     .setContentText("这是一条测试推送信息，如果程序正常，则会提示监听权限正常")
                     .build();
-        }else{
+        } else {
             mNotification = new Notification.Builder(MainActivity.this)
                     .setSmallIcon(R.mipmap.ic_launcher)
                     .setTicker("这是一条测试推送信息，如果程序正常，则会提示监听权限正常")
@@ -242,14 +258,8 @@ public class MainActivity extends AppCompatActivity{
         //Toast.makeText(MainActivity.this, "已推送信息，如果权限，那么将会有下一条提示！", Toast.LENGTH_SHORT).show();
 
 
-
         mNotificationManager.notify(id++, mNotification);
     }
-
-
-
-
-
 
 
     //各种权限的判断
@@ -263,6 +273,7 @@ public class MainActivity extends AppCompatActivity{
 
         Toast.makeText(MainActivity.this, "监听服务启动中...", Toast.LENGTH_SHORT).show();
     }
+
     public boolean isNotificationListenersEnabled() {
         String pkgName = getPackageName();
         final String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
@@ -279,6 +290,7 @@ public class MainActivity extends AppCompatActivity{
         }
         return false;
     }
+
     protected boolean gotoNotificationAccessSetting() {
         try {
             Intent intent = new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS");
@@ -305,32 +317,6 @@ public class MainActivity extends AppCompatActivity{
     }
 
 
-
-    public static String md5(String string) {
-        if (TextUtils.isEmpty(string)) {
-            return "";
-        }
-        MessageDigest md5 = null;
-        try {
-            md5 = MessageDigest.getInstance("MD5");
-            byte[] bytes = md5.digest(string.getBytes());
-            String result = "";
-            for (byte b : bytes) {
-                String temp = Integer.toHexString(b & 0xff);
-                if (temp.length() == 1) {
-                    temp = "0" + temp;
-                }
-                result += temp;
-            }
-            return result;
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -339,45 +325,53 @@ public class MainActivity extends AppCompatActivity{
             Bundle bundle = data.getExtras();
             String scanResult = bundle.getString(Constant.INTENT_EXTRA_KEY_QR_SCAN);
 
-            String[] tmp = scanResult.split("/");
-            if (tmp.length!=2){
+            String[] tmp = scanResult.split("/monitor/report/business/");
+            if (tmp.length != 2) {
                 Toast.makeText(MainActivity.this, "二维码错误，请您扫描网站上显示的二维码!", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            String t = String.valueOf(new Date().getTime());
-            String sign = md5(t+tmp[1]);
+            String decodeKey = NeNotificationService2.decode64(tmp[1]);
 
+            host = scanResult;
+            key = decodeKey;
+            dataUrl = tmp[0] + Constant.URL_DATA + tmp[1];
+            heartUrl = tmp[0] + Constant.URL_HEART + tmp[1];
 
+            String url = NeNotificationService2.heartURL(heartUrl, decodeKey);
+//            Log.d(TAG, "-------------  URL地址: " + url);
             OkHttpClient okHttpClient = new OkHttpClient();
-            Request request = new Request.Builder().url("http://"+tmp[0]+"/appHeart?t="+t+"&sign="+sign).method("GET",null).build();
+            Request request = new Request.Builder().url(url).method("GET", null).build();
             Call call = okHttpClient.newCall(request);
             call.enqueue(new Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
 
                 }
+
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
-                    Log.d(TAG, "onResponse: "+response.body().string());
+                    Log.d(TAG, "onResponse: " + response.body().string());
                     isOk = true;
 
                 }
             });
 
             //将扫描出的信息显示出来
-            txthost.setText(" 通知地址："+tmp[0]);
-            txtkey.setText(" 通讯密钥："+tmp[1]);
-            host = tmp[0];
-            key = tmp[1];
+            txthost.setText(" 通知地址：" + scanResult);
+            txtkey.setText(" 通讯密钥：" + decodeKey);
+
 
             SharedPreferences.Editor editor = getSharedPreferences("vone", MODE_PRIVATE).edit();
             editor.putString("host", host);
             editor.putString("key", key);
+            editor.putString("heart", heartUrl);
+            editor.putString("data", dataUrl);
             editor.commit();
 
         }
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -404,7 +398,6 @@ public class MainActivity extends AppCompatActivity{
                 break;
         }
     }
-
 
 
 }
