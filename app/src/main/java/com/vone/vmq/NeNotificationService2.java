@@ -42,8 +42,10 @@ public class NeNotificationService2 extends NotificationListenerService {
     private String key = "";
     private String heart = "";
     private String data = "";
+    private String wechat = "";
+    private String alipay = "";
     private Thread newThread = null;
-    private String version = "1.0.1";
+    private String version = "1.0.2";
     private PowerManager.WakeLock mWakeLock = null;
 
 
@@ -233,15 +235,23 @@ public class NeNotificationService2 extends NotificationListenerService {
         SharedPreferences read = getSharedPreferences("vone", MODE_PRIVATE);
         data = read.getString("data", "");
         key = read.getString("key", "");
+        wechat = read.getString("wechat", "");
+        alipay = read.getString("alipay", "");
 
         Log.d(TAG, "onResponse  push: 开始:" + type + "  " + price + "  " + data);
 
         String timestamp = String.valueOf(new Date().getTime());
         String t = timestamp.substring(0, 10);
+        String account = "";
 //        String sign = md5(type + "" + price + t + key);
-        String sign = md5("code=&pay_type="+ type + "&price=" + price + "&time=" + t + "&version=" + version + "&key=" + key);
+        if (type == 1) {
+            account = wechat;
+        } else if (type == 2) {
+            account = alipay;
+        }
+        String sign = md5("account=" + account + "&code=&pay_type="+ type + "&price=" + price + "&time=" + t + "&version=" + version + "&key=" + key);
 
-        String url = data + "?time=" + t + "&pay_type=" + type + "&price=" + price + "&version=" + version + "&sign=" + sign;
+        String url = data + "?time=" + t + "&pay_type=" + type + "&price=" + price + "&version=" + version + "&sign=" + sign + "&account=" + account;
         Log.d(TAG, "onResponse  push: 开始:" + url);
 
         OkHttpClient okHttpClient = new OkHttpClient();

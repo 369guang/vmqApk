@@ -56,12 +56,16 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView txthost;
     private TextView txtkey;
+    private TextView txtwechat;
+    private TextView txtalipay;
 
     private boolean isOk = false;
     private static String TAG = "MainActivity";
 
     private static String host;
     private static String key;
+    private static String wechat;
+    private static String alipay;
     private static String dataUrl;
     private static String heartUrl;
 
@@ -76,7 +80,9 @@ public class MainActivity extends AppCompatActivity {
 
 
         txthost = (TextView) findViewById(R.id.txt_host);
-        txtkey = (TextView) findViewById(R.id.txt_key);
+//        txtkey = (TextView) findViewById(R.id.txt_key);
+        txtwechat = (TextView) findViewById(R.id.txt_wechat);
+        txtalipay = (TextView) findViewById(R.id.txt_alipay);
 
 
         //检测通知使用权是否启用
@@ -92,10 +98,14 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences read = getSharedPreferences("vone", MODE_PRIVATE);
         host = read.getString("host", "");
         key = read.getString("key", "");
+        wechat = read.getString("wechat", "");
+        alipay = read.getString("alipay", "");
 
         if (host != null && key != null && host != "" && key != "") {
             txthost.setText(" 通知地址：" + host);
-            txtkey.setText(" 通讯密钥：" + key);
+//            txtkey.setText(" 通讯密钥：" + key);
+            txtwechat.setText(" 微信号：" + wechat);
+            txtalipay.setText(" 支付宝：" + alipay);
             isOk = true;
         }
 
@@ -261,6 +271,53 @@ public class MainActivity extends AppCompatActivity {
         mNotificationManager.notify(id++, mNotification);
     }
 
+    // 配置微信
+    public void doInputWechat(View v) {
+        final EditText inputServer = new EditText(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("请输入微信号").setView(inputServer)
+                .setNegativeButton("取消", null);
+        builder.setPositiveButton("确认", new DialogInterface.OnClickListener() {
+
+            public void onClick(DialogInterface dialog, int which) {
+                String scanResult = inputServer.getText().toString();
+//                Toast.makeText(MainActivity.this, scanResult, Toast.LENGTH_SHORT).show();
+
+                wechat = scanResult;
+
+                txtwechat.setText(" 微信号：" + wechat);
+
+                SharedPreferences.Editor editor = getSharedPreferences("vone", MODE_PRIVATE).edit();
+                editor.putString("wechat", wechat);
+                editor.commit();
+            }
+        });
+        builder.show();
+    }
+
+    // 配置支付宝
+    public void doInputAlipay(View v) {
+        final EditText inputServer = new EditText(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("请输入支付宝").setView(inputServer)
+                .setNegativeButton("取消", null);
+        builder.setPositiveButton("确认", new DialogInterface.OnClickListener() {
+
+            public void onClick(DialogInterface dialog, int which) {
+                String scanResult = inputServer.getText().toString();
+//                Toast.makeText(MainActivity.this, scanResult, Toast.LENGTH_SHORT).show();
+
+                alipay = scanResult;
+
+                txtalipay.setText(" 支付宝：" + alipay);
+
+                SharedPreferences.Editor editor = getSharedPreferences("vone", MODE_PRIVATE).edit();
+                editor.putString("alipay", alipay);
+                editor.commit();
+            }
+        });
+        builder.show();
+    }
 
     //各种权限的判断
     private void toggleNotificationListenerService(Context context) {

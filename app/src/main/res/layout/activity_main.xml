@@ -22,13 +22,26 @@
         android:baselineAligned="false"
         android:text=" 通知地址：请扫码配置" />
 
-    <TextView
+    <!--TextView
         android:paddingBottom="20dp"
         android:id="@+id/txt_key"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text=" 通讯密钥：请扫码配置" />
+        android:text=" 通讯密钥：请扫码配置" /-->
 
+    <TextView
+        android:paddingBottom="20dp"
+        android:id="@+id/txt_wechat"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text=" 微信号：" />
+
+    <TextView
+        android:paddingBottom="20dp"
+        android:id="@+id/txt_alipay"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text=" 支付宝：" />
 
     <Button
         android:id="@+id/btn_qrcode"
@@ -58,5 +71,19 @@
         android:layout_gravity="center_horizontal"
         android:onClick="checkPush"
         android:text="检测监听" />
+
+    <Button
+        android:id="@+id/btn_wx"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:onClick="doInputWechat"
+        android:text="微信配置" />
+
+    <Button
+        android:id="@+id/btn_alipay"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:onClick="doInputAlipay"
+        android:text="支付宝配置" />
 
 </LinearLayout>
