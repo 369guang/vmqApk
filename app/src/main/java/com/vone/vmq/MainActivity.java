@@ -416,7 +416,6 @@ public class MainActivity extends AppCompatActivity {
 
             //将扫描出的信息显示出来
             txthost.setText(" 通知地址：" + scanResult);
-            txtkey.setText(" 通讯密钥：" + decodeKey);
 
 
             SharedPreferences.Editor editor = getSharedPreferences("vone", MODE_PRIVATE).edit();
