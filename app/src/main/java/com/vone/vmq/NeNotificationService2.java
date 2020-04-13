@@ -190,6 +190,8 @@ public class NeNotificationService2 extends NotificationListenerService {
                         }
                     }
 
+                } else if (pkg.equals("com.tencent.mobileqq")) {
+
                 } else if (pkg.equals("com.vone.qrcode")) {
 
                     if (content.equals("这是一条测试推送信息，如果程序正常，则会提示监听权限正常")) {
